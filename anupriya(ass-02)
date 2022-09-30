@@ -1,0 +1,41 @@
+import network
+import time
+from machine import Pin
+import dht
+import ujson
+from umqtt.simple import MQTTClient
+# MQTT Server Parameters
+MQTT_CLIENT_ID = &quot;micropython-weather-demo&quot;
+MQTT_BROKER    = &quot;broker.mqttdashboard.com&quot;
+MQTT_USER      = &quot;&quot;
+MQTT_PASSWORD  = &quot;&quot;
+MQTT_TOPIC     = &quot;wokwi-weather&quot;
+sensor = dht.DHT22(Pin(15))
+print(&quot;Connecting to WiFi&quot;, end=&quot;&quot;)
+sta_if = network.WLAN(network.STA_IF)
+sta_if.active(True)
+sta_if.connect(&#39;Wokwi-GUEST&#39;, &#39;&#39;)
+while not sta_if.isconnected():
+  print(&quot;.&quot;, end=&quot;&quot;)
+  time.sleep(0.1)
+print(&quot; Connected!&quot;)
+print(&quot;Connecting to MQTT server... &quot;, end=&quot;&quot;)
+client = MQTTClient(MQTT_CLIENT_ID, MQTT_BROKER, user=MQTT_USER, password=MQTT_PASSWORD)
+client.connect()
+print(&quot;Connected!&quot;)
+prev_weather = &quot;&quot;
+while True:
+  print(&quot;Measuring weather conditions... &quot;, end=&quot;&quot;)
+  sensor.measure()
+  message = ujson.dumps({
+    &quot;temp&quot;: sensor.temperature(),
+    &quot;humidity&quot;: sensor.humidity(),
+  })
+  if message != prev_weather:
+    print(&quot;Updated!&quot;)
+    print(&quot;Reporting to MQTT topic {}: {}&quot;.format(MQTT_TOPIC, message))
+    client.publish(MQTT_TOPIC, message)
+    prev_weather = message
+  else:
+    print(&quot;No change&quot;)
+  time.sleep(1)
